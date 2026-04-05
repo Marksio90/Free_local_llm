@@ -8,14 +8,16 @@ import {
   Zap,
   Brain,
   RefreshCw,
+  Globe,
   ExternalLink,
 } from "lucide-react";
 
 const NAV = [
-  { to: "/chat",     icon: MessageSquare, label: "Chat",       accent: true },
+  { to: "/chat",     icon: MessageSquare, label: "Chat",          accent: true },
   { to: "/",         icon: LayoutDashboard, label: "Dashboard" },
   { to: "/models",   icon: Cpu,           label: "Modele" },
   { to: "/sync",     icon: RefreshCw,     label: "Auto-Sync" },
+  { to: "/intel",    icon: Globe,         label: "Web Intel" },
   { to: "/github",   icon: Github,        label: "GitHub" },
   { to: "/knowledge",icon: BookOpen,      label: "Wiedza" },
   { to: "/memory",   icon: Brain,         label: "Pamięć" },

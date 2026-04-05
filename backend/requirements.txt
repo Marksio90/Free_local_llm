@@ -9,6 +9,10 @@ python-multipart==0.0.20
 aiofiles==24.1.0
 PyGithub==2.5.0
 tenacity==9.0.0
-# Nowe zależności
-apscheduler==3.10.4       # Scheduler dla auto-sync i treningu
-rank-bm25==0.2.2          # Hybrydowe wyszukiwanie BM25 + vector
+apscheduler==3.10.4
+rank-bm25==0.2.2
+# Web Intelligence – darmowe źródła wiedzy
+duckduckgo-search==6.3.5  # DuckDuckGo bez API key
+trafilatura==1.12.2        # Ekstrakcja czystego tekstu ze stron
+feedparser==6.0.11         # RSS/Atom feeds
+beautifulsoup4==4.12.3     # HTML parsing fallback

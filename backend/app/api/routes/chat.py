@@ -21,6 +21,7 @@ from app.services.ollama_client import ollama
 from app.services.context_builder import build_context, build_system_prompt
 from app.services.memory_service import memory
 from app.core.config import settings
+import asyncio
 
 router = APIRouter()
 
@@ -90,10 +91,12 @@ async def chat(req: ChatRequest):
                             except Exception:
                                 pass
 
-            # Zapisz do pamięci po zakończeniu
+            # Zapisz do pamięci i uruchom auto-learning po zakończeniu
             if req.use_memory:
                 full_text = "".join(full_response)
                 await memory.add_exchange(req.message, full_text, req.session_id)
+                # Auto-learn: wyciągnij tematy i zbierz wiedzę w tle
+                asyncio.create_task(_auto_learn(req.message, full_text))
 
         return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
@@ -103,6 +106,8 @@ async def chat(req: ChatRequest):
     # 4. Zapisz do pamięci
     if req.use_memory:
         await memory.add_exchange(req.message, response, req.session_id)
+        # Auto-learn w tle (nie blokuje odpowiedzi)
+        asyncio.create_task(_auto_learn(req.message, response))
 
     return {
         "response": response,
@@ -111,6 +116,19 @@ async def chat(req: ChatRequest):
         "collections": context["collections_searched"],
         "model": model,
     }
+
+
+async def _auto_learn(user_msg: str, assistant_msg: str):
+    """
+    Uruchamia się po każdej rozmowie w tle.
+    Wyciąga tematy i zbiera wiedzę z internetu.
+    Użytkownik nic nie robi — model sam się uczy.
+    """
+    try:
+        from app.services.topic_tracker_service import auto_learn_from_exchange
+        await auto_learn_from_exchange(user_msg, assistant_msg)
+    except Exception:
+        pass  # Auto-learning nie powinien blokować ani crashować
 
 
 @router.get("/sessions/{session_id}/history")

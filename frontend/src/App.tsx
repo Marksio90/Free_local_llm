@@ -8,6 +8,7 @@ import Knowledge from "./pages/Knowledge";
 import Training from "./pages/Training";
 import Memory from "./pages/Memory";
 import Sync from "./pages/Sync";
+import Intel from "./pages/Intel";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/sync"      element={<Sync />} />
         <Route path="/github"    element={<GitHub />} />
         <Route path="/knowledge" element={<Knowledge />} />
+        <Route path="/intel"     element={<Intel />} />
         <Route path="/memory"    element={<Memory />} />
         <Route path="/training"  element={<Training />} />
       </Routes>

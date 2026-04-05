@@ -149,8 +149,24 @@ async def sync_all_repos(include_forks: bool = False, include_stars: bool = Fals
                 _sync_status["repos_failed"] += 1
                 log(f"  ✗ {repo.full_name}: {str(e)[:100]}")
 
+        # ── GitHub Stars → README każdej zainteresowanej biblioteki ──────────
+        if include_stars:
+            log("Ingestuję GitHub Stars (README + opisy)...")
+            await _ingest_stars(gh, user, log)
+
+        # ── Gisty → fragmenty kodu i notatki ─────────────────────────────────
+        log("Ingestuję Gists...")
+        await _ingest_gists(user, log)
+
+        # ── Issue comments i PR opisy — styl myślenia ────────────────────────
+        log("Ingestuję komentarze Issues/PR...")
+        await _ingest_activity(user, repos[:20], log)  # tylko top 20 repo
+
         # Zaktualizuj profil użytkownika na podstawie repo
         await _update_user_profile(user, repos)
+
+        # Dodaj języki/tematy do topic trackera
+        await _seed_topics_from_repos(repos, log)
 
         log(f"Sync zakończony: {_sync_status['repos_synced']}/{_sync_status['repos_found']} repo, "
             f"+{_sync_status['chunks_added']} fragmentów")
@@ -166,6 +182,148 @@ async def sync_all_repos(include_forks: bool = False, include_stars: bool = Fals
         _sync_status["running"] = False
 
     return _sync_status
+
+
+async def _ingest_stars(gh, user, log) -> int:
+    """Ingestion README każdego zrepozytoriowanego repo (GitHub Stars).
+    Pokazuje co użytkownik uważa za wartościowe w open source."""
+    from app.services.web_intel_service import ingest_url
+    from app.services.topic_tracker_service import add_topic
+
+    STARS_COLLECTION = "github_stars"
+    ingested = 0
+    try:
+        for repo in user.get_starred()[:100]:  # max 100 starred
+            try:
+                # README jako główna wiedza o bibliotece
+                try:
+                    readme = repo.get_readme()
+                    content = readme.decoded_content.decode("utf-8", errors="ignore")
+                    if content and len(content) > 200:
+                        chunks, metas = [], []
+                        header = f"# GitHub Star: {repo.full_name}\n{repo.description or ''}\n\n"
+                        chunk = header + content[:3000]
+                        metas_item = {
+                            "type": "star_readme",
+                            "repo": repo.full_name,
+                            "language": repo.language or "",
+                            "stars": repo.stargazers_count,
+                        }
+                        await rag.add_chunks(STARS_COLLECTION, [chunk], [metas_item])
+                        ingested += 1
+                except Exception:
+                    pass
+
+                # Temat = język + nazwa (np. "python httpx")
+                if repo.language:
+                    topic_name = f"{repo.language.lower()} {repo.name.lower()}"
+                    add_topic(topic_name, source="github_star", crawl_hours=72)
+
+            except Exception:
+                continue
+        log(f"  Stars: +{ingested} README zaingestionowanych")
+    except Exception as e:
+        log(f"  Stars błąd: {e}")
+    return ingested
+
+
+async def _ingest_gists(user, log) -> int:
+    """Ingestion Gistów użytkownika — często prywatne notatki i snippety."""
+    GISTS_COLLECTION = "github_gists"
+    ingested = 0
+    try:
+        for gist in user.get_gists():
+            try:
+                for filename, gist_file in gist.files.items():
+                    content = gist_file.content or ""
+                    if len(content) < 50:
+                        continue
+                    header = f"# Gist: {gist.description or filename}\n\n"
+                    chunk = header + content[:2000]
+                    meta = {
+                        "type": "gist",
+                        "filename": filename,
+                        "gist_id": gist.id,
+                        "description": gist.description or "",
+                    }
+                    await rag.add_chunks(GISTS_COLLECTION, [chunk], [meta])
+                    ingested += 1
+            except Exception:
+                continue
+        log(f"  Gists: +{ingested} fragmentów")
+    except Exception as e:
+        log(f"  Gists błąd: {e}")
+    return ingested
+
+
+async def _ingest_activity(user, repos: List, log) -> int:
+    """
+    Ingestion komentarzy Issues i PR — pokazuje styl myślenia i pisania.
+    To jest najbardziej "personalny" zbiór danych.
+    """
+    ACTIVITY_COLLECTION = "github_activity"
+    ingested = 0
+    try:
+        # Issue comments użytkownika we własnych repo
+        for repo in repos[:10]:
+            try:
+                for issue in repo.get_issues(state="all")[:20]:
+                    try:
+                        # Treść issue (jeśli autor to użytkownik)
+                        if issue.user.login == user.login:
+                            content = f"Issue #{issue.number}: {issue.title}\n\n{issue.body or ''}"
+                            if len(content) > 100:
+                                meta = {
+                                    "type": "issue",
+                                    "repo": repo.full_name,
+                                    "issue_number": issue.number,
+                                    "title": issue.title,
+                                }
+                                await rag.add_chunks(ACTIVITY_COLLECTION, [content[:2000]], [meta])
+                                ingested += 1
+
+                        # Komentarze użytkownika
+                        for comment in issue.get_comments():
+                            if comment.user.login == user.login and comment.body:
+                                meta = {
+                                    "type": "issue_comment",
+                                    "repo": repo.full_name,
+                                    "issue_number": issue.number,
+                                }
+                                await rag.add_chunks(ACTIVITY_COLLECTION, [comment.body[:1000]], [meta])
+                                ingested += 1
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        log(f"  Activity: +{ingested} komentarzy/issues")
+    except Exception as e:
+        log(f"  Activity błąd: {e}")
+    return ingested
+
+
+async def _seed_topics_from_repos(repos: List, log):
+    """Dodaj języki i tematy z repo do topic trackera."""
+    from app.services.topic_tracker_service import add_topic
+
+    lang_counts: dict = {}
+    for repo in repos:
+        if repo.language:
+            lang_counts[repo.language] = lang_counts.get(repo.language, 0) + 1
+        # Tematy z opisu repo
+        if repo.description:
+            # Proste wyciąganie słów kluczowych z opisu
+            words = repo.description.lower().split()
+            for word in words:
+                if len(word) > 5 and word.isalpha():
+                    add_topic(word, source="repo_description", crawl_hours=72)
+
+    # Języki jako tematy
+    for lang, count in sorted(lang_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
+        add_topic(lang.lower(), source="github_language", crawl_hours=48)
+
+    log(f"  Dodano tematy z {len(repos)} repo do topic trackera")
 
 
 async def _update_user_profile(user, repos: List):
