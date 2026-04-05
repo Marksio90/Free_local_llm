@@ -129,7 +129,7 @@ curl -X POST http://localhost:8080/api/training/dataset/build \
 
 **Krok 3:** Uruchom trening LoRA (wymaga GPU NVIDIA):
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer \
+docker-compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer \
   python scripts/run_lora.py \
     --dataset /app/output/moj-dataset.jsonl \
     --model qwen3:4b \
@@ -138,7 +138,7 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer 
 
 **Krok 4:** Eksportuj do GGUF i zarejestruj w Ollama:
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer \
+docker-compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer \
   python scripts/export_gguf.py \
     --model /app/output/finetuned/merged \
     --name moj-model
@@ -156,7 +156,7 @@ docker exec llm-ollama ollama run moj-model
 # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 
 # Uruchom z GPU
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 ```
 
 ## Konfiguracja (.env)
@@ -172,17 +172,17 @@ WEBUI_SECRET_KEY=zmien-mnie   # Klucz sesji WebUI
 
 ```bash
 # Zatrzymaj wszystko
-docker compose down
+docker-compose down
 
 # Zatrzymaj i usuń dane (!)
-docker compose down -v
+docker-compose down -v
 
 # Logi
-docker compose logs -f backend
-docker compose logs -f ollama
+docker-compose logs -f backend
+docker-compose logs -f ollama
 
 # Restart jednego serwisu
-docker compose restart backend
+docker-compose restart backend
 
 # Shell w kontenerze
 docker exec -it llm-backend bash
