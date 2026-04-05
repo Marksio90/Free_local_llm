@@ -1,19 +1,25 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
+  MessageSquare,
   LayoutDashboard,
   Github,
   BookOpen,
   Cpu,
   Zap,
+  Brain,
+  RefreshCw,
   ExternalLink,
 } from "lucide-react";
 
 const NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/models", icon: Cpu, label: "Modele" },
-  { to: "/github", icon: Github, label: "GitHub" },
-  { to: "/knowledge", icon: BookOpen, label: "Wiedza" },
-  { to: "/training", icon: Zap, label: "Trening" },
+  { to: "/chat",     icon: MessageSquare, label: "Chat",       accent: true },
+  { to: "/",         icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/models",   icon: Cpu,           label: "Modele" },
+  { to: "/sync",     icon: RefreshCw,     label: "Auto-Sync" },
+  { to: "/github",   icon: Github,        label: "GitHub" },
+  { to: "/knowledge",icon: BookOpen,      label: "Wiedza" },
+  { to: "/memory",   icon: Brain,         label: "Pamięć" },
+  { to: "/training", icon: Zap,           label: "Trening" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -25,11 +31,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="text-accent-400 font-bold text-sm tracking-widest uppercase">
             Free Local LLM
           </div>
-          <div className="text-gray-500 text-xs mt-0.5">Panel zarządzania</div>
+          <div className="text-gray-500 text-xs mt-0.5">v2.0 – Personal AI</div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {NAV.map(({ to, icon: Icon, label }) => (
+          {NAV.map(({ to, icon: Icon, label, accent }) => (
             <NavLink
               key={to}
               to={to}
@@ -38,6 +44,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                   isActive
                     ? "bg-accent-500/20 text-accent-300 border border-accent-500/30"
+                    : accent
+                    ? "text-accent-400 hover:text-accent-300 hover:bg-accent-500/10"
                     : "text-gray-400 hover:text-gray-100 hover:bg-dark-600"
                 }`
               }
@@ -48,7 +56,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-dark-500 space-y-2">
+        <div className="px-3 py-4 border-t border-dark-500 space-y-1">
           <a
             href="http://localhost:3000"
             target="_blank"

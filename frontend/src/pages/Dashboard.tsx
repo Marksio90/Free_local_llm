@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
 import { api, CollectionInfo, ModelInfo } from "../api/client";
-import { Cpu, BookOpen, Github, Zap, ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { Cpu, BookOpen, Brain, ExternalLink, CheckCircle, XCircle, RefreshCw, MessageSquare } from "lucide-react";
+
+const BASE = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
 
 export default function Dashboard() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [collections, setCollections] = useState<CollectionInfo[]>([]);
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
+  const [memStats, setMemStats] = useState<{ total_memories: number } | null>(null);
+  const [syncStatus, setSyncStatus] = useState<{ repos_synced?: number; last_run?: string } | null>(null);
 
   useEffect(() => {
     api.health().then(() => setBackendOk(true)).catch(() => setBackendOk(false));
     api.models.list().then((r) => setModels(r.models ?? [])).catch(() => {});
     api.knowledge.collections().then(setCollections).catch(() => {});
+    fetch(`${BASE}/api/memory/stats`).then((r) => r.json()).then(setMemStats).catch(() => {});
+    fetch(`${BASE}/api/sync/status`).then((r) => r.json()).then(setSyncStatus).catch(() => {});
   }, []);
 
   const totalChunks = collections.reduce((s, c) => s + c.count, 0);
@@ -23,7 +29,7 @@ export default function Dashboard() {
       </div>
 
       {/* Status */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
         <StatCard
           label="Backend"
           value={backendOk === null ? "..." : backendOk ? "Online" : "Offline"}
@@ -31,8 +37,24 @@ export default function Dashboard() {
           color={backendOk ? "text-green-400" : "text-red-400"}
         />
         <StatCard label="Modele" value={models.length} icon={Cpu} color="text-accent-400" />
-        <StatCard label="Kolekcje wiedzy" value={collections.length} icon={BookOpen} color="text-blue-400" />
-        <StatCard label="Fragmentów w bazie" value={totalChunks} icon={Github} color="text-purple-400" />
+        <StatCard label="Kolekcje" value={collections.length} icon={BookOpen} color="text-blue-400" />
+        <StatCard label="Fragmenty kodu" value={totalChunks} icon={BookOpen} color="text-purple-400" />
+        <StatCard label="Wspomnienia" value={memStats?.total_memories ?? "..."} icon={Brain} color="text-pink-400" />
+        <StatCard label="Repo zsynced" value={syncStatus?.repos_synced ?? "—"} icon={RefreshCw} color="text-green-400" />
+      </div>
+
+      {/* Quick action */}
+      <div className="card border-accent-500/20 bg-accent-500/5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-accent-300">Zacznij od razu</div>
+            <p className="text-xs text-gray-400 mt-0.5">Chat automatycznie przeszuka Twoje repo i pamięć</p>
+          </div>
+          <a href="/chat" className="btn-primary flex items-center gap-2">
+            <MessageSquare size={13} />
+            Otwórz Chat
+          </a>
+        </div>
       </div>
 
       {/* Quick links */}
@@ -108,16 +130,17 @@ export default function Dashboard() {
 
       {/* How it works */}
       <div className="card">
-        <h2 className="text-sm font-semibold text-gray-300 mb-4">Jak to działa</h2>
+        <h2 className="text-sm font-semibold text-gray-300 mb-4">Pipeline "Personal AI"</h2>
         <ol className="space-y-3">
           {[
-            ["GitHub →", "Zaingestionuj repo: kod trafia do ChromaDB jako wektory semantyczne"],
-            ["Wiedza →", "Wgraj własne dokumenty: notatki, PDFy, pliki tekstowe"],
-            ["Trening →", "Zbuduj dataset Q&A i uruchom fine-tuning LoRA (wymaga GPU)"],
-            ["Czat →", "Model odpowiada z kontekstem Twojej wiedzy (RAG)"],
+            ["Auto-Sync →", "Podłącz konto GitHub → wszystkie Twoje repo zaindeksowane automatycznie co 24h"],
+            ["Wiedza →", "Wgraj dokumenty, notatki, pliki — trafiają do RAG"],
+            ["Chat →", "Każda rozmowa: BM25+vector search → kontekst z kodu → pamięć → odpowiedź"],
+            ["Pamięć →", "Każda rozmowa zapamiętana — model zna Cię coraz lepiej z czasem"],
+            ["Trening →", "Nowe commity → auto-dataset Q&A → LoRA fine-tuning (GPU)"],
           ].map(([step, desc], i) => (
             <li key={i} className="flex gap-3 text-sm">
-              <span className="text-accent-400 font-bold w-24 shrink-0">{step}</span>
+              <span className="text-accent-400 font-bold w-28 shrink-0">{step}</span>
               <span className="text-gray-400">{desc}</span>
             </li>
           ))}
