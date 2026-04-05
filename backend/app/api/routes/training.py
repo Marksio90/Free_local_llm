@@ -1,7 +1,6 @@
 import json
-import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
@@ -160,7 +159,7 @@ async def fine_tuning_instructions():
         "info": "Fine-tuning z GPU wymaga uruchomienia osobnego kontenera",
         "steps": [
             "1. Upewnij się, że masz GPU i nvidia-container-toolkit",
-            "2. Uruchom: docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer",
+            "2. Uruchom: docker-compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm trainer",
             "3. Wewnątrz kontenera: python /app/scripts/run_lora.py --dataset dataset.jsonl --model qwen3:4b",
             "4. Po treningu: python /app/scripts/export_gguf.py --model output/ --name my-model",
             "5. Zarejestruj w Ollama: ollama create my-model -f /app/output/Modelfile",

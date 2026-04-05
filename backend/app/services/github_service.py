@@ -43,20 +43,31 @@ def _repo_local_path(repo_url: str) -> Path:
 def clone_or_update(repo_url: str) -> Path:
     """Klonuje lub aktualizuje repo lokalnie."""
     local = _repo_local_path(repo_url)
-    if local.exists():
+
+    # BUG FIX: sprawdzamy czy to rzeczywiście git repo, nie tylko czy katalog istnieje.
+    # local.exists() może być True dla pustego katalogu, co spowodowałoby
+    # InvalidGitRepositoryError przy git.Repo(local).
+    is_git_repo = (local / ".git").exists()
+
+    if is_git_repo:
         repo = git.Repo(local)
         origin = repo.remotes.origin
         origin.pull()
     else:
-        local.mkdir(parents=True, exist_ok=True)
+        # Usuń pusty katalog jeśli istnieje, żeby clone mógł go stworzyć
+        if local.exists():
+            import shutil
+            shutil.rmtree(local)
+        local.parent.mkdir(parents=True, exist_ok=True)
+
         clone_url = repo_url
         if settings.github_token:
-            # Wstrzyknij token do URL HTTPS
             clone_url = repo_url.replace(
                 "https://github.com",
                 f"https://{settings.github_token}@github.com",
             )
         git.Repo.clone_from(clone_url, local)
+
     return local
 
 
