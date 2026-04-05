@@ -1,0 +1,14 @@
+# Fine-tuning z LoRA (GPU wymagany)
+torch==2.5.1
+transformers==4.47.1
+datasets==3.2.0
+trl==0.13.0
+peft==0.14.0
+accelerate==1.2.1
+bitsandbytes==0.45.0
+sentencepiece==0.2.0
+# Unsloth – szybszy training (opcjonalny, wymaga CUDA)
+# unsloth @ git+https://github.com/unslothai/unsloth.git
+# Dataset generation
+httpx==0.28.1
+tqdm==4.67.1

@@ -1,0 +1,41 @@
+version: "3.8"
+
+# Nadpisanie dla GPU NVIDIA
+# Użycie: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Wymaga: nvidia-container-toolkit
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=2
+
+  # Serwis fine-tuningu z GPU (uruchamiany osobno: docker compose run --rm trainer)
+  trainer:
+    build:
+      context: ./training
+      dockerfile: Dockerfile
+    container_name: llm-trainer
+    volumes:
+      - repos_cache:/app/repos
+      - training_output:/app/output
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3:4b}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    profiles:
+      - training
