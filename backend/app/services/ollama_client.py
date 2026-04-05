@@ -17,7 +17,8 @@ class OllamaClient:
             r.raise_for_status()
             return r.json().get("models", [])
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    # BUG FIX: @retry NIE działa z async generatorami (tenacity próbuje await na generatorze
+    # co rzuca TypeError). Pull ma timeout=600s więc retry nie jest potrzebny.
     async def pull_model(self, model_name: str) -> AsyncGenerator[str, None]:
         async with httpx.AsyncClient(timeout=600) as client:
             async with client.stream(
@@ -25,6 +26,7 @@ class OllamaClient:
                 f"{self.base_url}/api/pull",
                 json={"name": model_name, "stream": True},
             ) as response:
+                response.raise_for_status()
                 async for line in response.aiter_lines():
                     if line:
                         yield line
@@ -38,13 +40,29 @@ class OllamaClient:
             return r.status_code == 200
 
     async def embed(self, text: str) -> List[float]:
-        async with httpx.AsyncClient(timeout=60) as client:
+        """Embeddingi przez nowe Ollama API /api/embed (Ollama 0.1.26+).
+        Fallback do /api/embeddings dla starszych wersji."""
+        async with httpx.AsyncClient(timeout=120) as client:
+            # Nowe API (Ollama 0.1.26+): /api/embed z polem "input"
             r = await client.post(
+                f"{self.base_url}/api/embed",
+                json={"model": settings.embed_model, "input": text},
+            )
+            if r.status_code == 200:
+                data = r.json()
+                # Nowe API zwraca {"embeddings": [[...]]}, stare {"embedding": [...]}
+                if "embeddings" in data:
+                    return data["embeddings"][0]
+                if "embedding" in data:
+                    return data["embedding"]
+
+            # Fallback do deprecated /api/embeddings
+            r2 = await client.post(
                 f"{self.base_url}/api/embeddings",
                 json={"model": settings.embed_model, "prompt": text},
             )
-            r.raise_for_status()
-            return r.json()["embedding"]
+            r2.raise_for_status()
+            return r2.json()["embedding"]
 
     async def generate(self, model: str, prompt: str, system: str = "") -> str:
         payload = {"model": model, "prompt": prompt, "stream": False}
@@ -63,6 +81,12 @@ class OllamaClient:
             )
             r.raise_for_status()
             return r.json()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    async def health(self) -> bool:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{self.base_url}/api/tags")
+            return r.status_code == 200
 
 
 ollama = OllamaClient()

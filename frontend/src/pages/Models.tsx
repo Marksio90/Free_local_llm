@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ModelInfo } from "../api/client";
-import { Cpu, Download, Trash2, RefreshCw } from "lucide-react";
+import { Cpu, Download, Trash2, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
 
 const RECOMMENDED = [
   { name: "qwen3:4b", desc: "Startowy – ogólny asystent (8-12 GB RAM)", tag: "Rekomendowany" },
@@ -14,6 +14,8 @@ export default function Models() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [pulling, setPulling] = useState<string | null>(null);
   const [pullLog, setPullLog] = useState<string>("");
+  const [pullError, setPullError] = useState<string>("");
+  const [pullDone, setPullDone] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const refresh = () => {
@@ -28,11 +30,17 @@ export default function Models() {
 
   const pull = async (name: string) => {
     setPulling(name);
-    setPullLog("");
+    setPullLog("Łączę z Ollama...");
+    setPullError("");
+    setPullDone("");
     try {
       const res = await api.models.pull(name);
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errText}`);
+      }
       const reader = res.body?.getReader();
-      if (!reader) return;
+      if (!reader) throw new Error("Brak body w odpowiedzi – sprawdź czy Ollama działa");
       const dec = new TextDecoder();
       while (true) {
         const { done, value } = await reader.read();
@@ -41,15 +49,24 @@ export default function Models() {
         for (const line of lines) {
           try {
             const obj = JSON.parse(line);
-            setPullLog(obj.status ?? line);
-          } catch {
+            if (obj.error) throw new Error(obj.error);
+            const status = obj.status ?? "";
+            const detail = obj.completed && obj.total
+              ? ` (${Math.round((obj.completed / obj.total) * 100)}%)`
+              : "";
+            setPullLog(status + detail);
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== "JSON") {
+              throw parseErr;
+            }
             setPullLog(line);
           }
         }
       }
+      setPullDone(name);
       refresh();
     } catch (e) {
-      setPullLog(`Błąd: ${e}`);
+      setPullError(`${e}`);
     } finally {
       setPulling(null);
     }
@@ -107,11 +124,36 @@ export default function Models() {
         )}
       </div>
 
-      {/* Pull progress */}
-      {pulling && (
-        <div className="card border-accent-500/30">
-          <div className="text-xs text-accent-300 mb-1">Pobieranie: {pulling}</div>
-          <div className="text-xs text-gray-400 font-mono bg-dark-800 rounded p-2">{pullLog || "..."}</div>
+      {/* Pull progress / error / done */}
+      {(pulling || pullError || pullDone) && (
+        <div className={`card ${pullError ? "border-red-500/30" : pullDone ? "border-green-500/30" : "border-accent-500/30"}`}>
+          {pulling && (
+            <>
+              <div className="text-xs text-accent-300 mb-1 flex items-center gap-2">
+                <RefreshCw size={11} className="animate-spin" />
+                Pobieranie: {pulling}
+              </div>
+              <div className="text-xs text-gray-400 font-mono bg-dark-800 rounded p-2">{pullLog || "..."}</div>
+            </>
+          )}
+          {pullError && (
+            <div className="flex items-start gap-2 text-sm text-red-400">
+              <AlertCircle size={14} className="mt-0.5 shrink-0" />
+              <div>
+                <div className="font-semibold mb-0.5">Pull nie powiódł się</div>
+                <div className="text-xs font-mono text-red-300">{pullError}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Sprawdź czy Ollama działa: <code>docker logs llm-ollama</code>
+                </div>
+              </div>
+            </div>
+          )}
+          {pullDone && !pulling && !pullError && (
+            <div className="flex items-center gap-2 text-sm text-green-400">
+              <CheckCircle size={14} />
+              Model <strong>{pullDone}</strong> pobrany pomyślnie
+            </div>
+          )}
         </div>
       )}
 
