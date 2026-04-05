@@ -1,0 +1,43 @@
+# LoRA fine-tuning – konfiguracja referencyjna
+# Użycie: python run_lora.py --dataset dataset.jsonl --model qwen3:4b
+
+model:
+  # Krótka nazwa Ollama lub pełny HuggingFace ID
+  name: "qwen3:4b"
+  load_in_4bit: true       # QLoRA – oszczędność VRAM (GPU 8+ GB)
+
+lora:
+  rank: 16                  # r – wyższy = lepszy fit, więcej VRAM
+  alpha: 32                 # lora_alpha (zazwyczaj 2x rank)
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - v_proj
+    - k_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  epochs: 3
+  batch_size: 4
+  gradient_accumulation: 4  # efektywny batch = 4*4 = 16
+  learning_rate: 2e-4
+  max_seq_length: 2048
+  warmup_steps: 10
+
+hardware:
+  # 8 GB VRAM (RTX 3070 / 4060):
+  #   model: qwen3:4b, batch=2, rank=8, load_in_4bit=true
+  # 16 GB VRAM (RTX 3080 / 4080):
+  #   model: qwen2.5:7b, batch=4, rank=16, load_in_4bit=true
+  # 24 GB+ VRAM (RTX 3090 / 4090):
+  #   model: qwen2.5:7b, batch=8, rank=32, load_in_4bit=false
+
+quantization_for_export:
+  # q4_k_m – najlepszy balans jakość/rozmiar (rekomendowane)
+  # q5_k_m – lepiej, większy plik
+  # q8_0   – prawie pełna precyzja, duży plik
+  # f16    – pełna precyzja, największy plik
+  format: "q4_k_m"
