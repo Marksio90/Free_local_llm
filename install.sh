@@ -21,8 +21,8 @@ echo ""
 
 # ── 1. Sprawdź zależności ──────────────────────
 command -v docker >/dev/null 2>&1 || err "Docker nie jest zainstalowany. Zainstaluj: https://docs.docker.com/get-docker/"
-command -v docker compose version >/dev/null 2>&1 || err "Docker Compose v2 nie jest zainstalowany."
-log "Docker i Docker Compose są dostępne"
+command -v docker-compose >/dev/null 2>&1 || err "docker-compose nie jest zainstalowany. Zainstaluj: https://docs.docker.com/compose/install/"
+log "Docker i docker-compose są dostępne"
 
 # ── 2. Skopiuj .env ────────────────────────────
 if [ ! -f ".env" ]; then
@@ -47,7 +47,7 @@ fi
 
 # ── 5. Uruchom stos ────────────────────────────
 log "Buduję i uruchamiam kontenery..."
-docker compose -f docker-compose.yml $GPU_COMPOSE up -d --build
+docker-compose -f docker-compose.yml $GPU_COMPOSE up -d --build
 
 # ── 6. Poczekaj na Ollama ─────────────────────
 log "Czekam na uruchomienie Ollama..."
@@ -80,7 +80,7 @@ echo "  Panel admina:         http://localhost:3001"
 echo "  Backend API:          http://localhost:8080"
 echo "  API docs:             http://localhost:8080/docs"
 echo ""
-echo "  Aby zatrzymać:  docker compose down"
-echo "  Logi:           docker compose logs -f"
+echo "  Aby zatrzymać:  docker-compose down"
+echo "  Logi:           docker-compose logs -f"
 echo "  ─────────────────────────────────────────────"
 echo ""
