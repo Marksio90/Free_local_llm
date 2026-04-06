@@ -71,7 +71,8 @@ def _bm25_rerank(query: str, candidates: List[Tuple[str, float, str]]) -> List[T
     bm25 = BM25Okapi(corpus)
     scores = bm25.get_scores(tokenized_query)
     # Kombinuj score BM25 + vector (normalizuj BM25 do 0-1)
-    max_bm25 = max(scores) if max(scores) > 0 else 1
+    max_val = float(max(scores)) if len(scores) > 0 else 0.0
+    max_bm25 = max_val if max_val > 0 else 1.0
     combined = []
     for i, (doc, vec_score, col) in enumerate(candidates):
         bm25_norm = scores[i] / max_bm25

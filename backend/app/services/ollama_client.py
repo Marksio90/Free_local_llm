@@ -51,9 +51,9 @@ class OllamaClient:
             if r.status_code == 200:
                 data = r.json()
                 # Nowe API zwraca {"embeddings": [[...]]}, stare {"embedding": [...]}
-                if "embeddings" in data:
+                if "embeddings" in data and data["embeddings"]:
                     return data["embeddings"][0]
-                if "embedding" in data:
+                if "embedding" in data and data["embedding"]:
                     return data["embedding"]
 
             # Fallback do deprecated /api/embeddings
@@ -62,7 +62,10 @@ class OllamaClient:
                 json={"model": settings.embed_model, "prompt": text},
             )
             r2.raise_for_status()
-            return r2.json()["embedding"]
+            result = r2.json()
+            if "embedding" not in result or not result["embedding"]:
+                raise ValueError(f"Ollama zwróciło pusty embedding dla modelu {settings.embed_model}")
+            return result["embedding"]
 
     async def generate(self, model: str, prompt: str, system: str = "") -> str:
         payload = {"model": model, "prompt": prompt, "stream": False}
