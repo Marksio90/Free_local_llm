@@ -309,10 +309,9 @@ export default function Chat() {
             )}
           </div>
 
-          {/* Settings link */}
+          {/* Settings link → panel admin */}
           <a
-            href="/settings"
-            onClick={(e) => { e.preventDefault(); window.location.href = "/"; }}
+            href="/dashboard"
             className="text-[11px] px-2.5 py-1 rounded border border-dark-500 text-gray-500 hover:text-gray-300 hover:border-dark-400 transition-colors"
             title="Panel administracyjny"
           >

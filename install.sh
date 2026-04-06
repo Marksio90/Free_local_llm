@@ -77,20 +77,35 @@ else
     log "Ollama gotowa"
 fi
 
-# ── 7. Pobierz modele (bezpośrednio jeśli osiągalne) ─────────────────────────
-DEFAULT_MODEL="${DEFAULT_MODEL:-$(grep DEFAULT_MODEL .env 2>/dev/null | cut -d= -f2 || echo 'qwen3:4b')}"
-EMBED_MODEL="${EMBED_MODEL:-$(grep EMBED_MODEL .env 2>/dev/null | cut -d= -f2 || echo 'nomic-embed-text')}"
+# ── 7. Pobierz modele z podglądem na żywo ────────────────────────────────────
+DEFAULT_MODEL="${DEFAULT_MODEL:-$(grep '^DEFAULT_MODEL=' .env 2>/dev/null | cut -d= -f2 || echo 'qwen3:8b')}"
+EMBED_MODEL="${EMBED_MODEL:-$(grep '^EMBED_MODEL=' .env 2>/dev/null | cut -d= -f2 || echo 'nomic-embed-text')}"
+
+echo ""
+echo "  ─────────────────────────────────────────────────────"
+echo -e "  ${CYAN}Pobieranie modeli${NC}"
+echo "  ─────────────────────────────────────────────────────"
 
 if curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; then
-    info "Pobieram model czatu: ${DEFAULT_MODEL}  (może zająć kilka minut)"
-    docker exec llm-ollama ollama pull "$DEFAULT_MODEL" || warn "Nie udało się pobrać $DEFAULT_MODEL – kontener ollama-init dokończy w tle"
+    echo ""
+    echo -e "  ${BOLD}Model czatu: ${DEFAULT_MODEL}${NC}"
+    echo "  (Ctrl+C = przerwij podgląd; pobieranie trwa w tle)"
+    echo ""
+    docker exec -it llm-ollama ollama pull "$DEFAULT_MODEL" || \
+        warn "Pobieranie modelu czatu nie powiodło się – ollama-init dokończy w tle"
 
-    info "Pobieram model embeddingów: ${EMBED_MODEL}"
-    docker exec llm-ollama ollama pull "$EMBED_MODEL" || warn "Nie udało się pobrać $EMBED_MODEL"
+    echo ""
+    echo -e "  ${BOLD}Model embeddingów: ${EMBED_MODEL}${NC}"
+    echo ""
+    docker exec -it llm-ollama ollama pull "$EMBED_MODEL" || \
+        warn "Pobieranie modelu embeddingów nie powiodło się – ollama-init dokończy w tle"
 
     log "Modele gotowe"
 else
-    info "Modele zostaną pobrane automatycznie przez serwis ollama-init"
+    warn "Ollama jeszcze nie odpowiada – modele pobierze serwis ollama-init w tle"
+    echo ""
+    echo "  Aby obserwować postęp w czasie rzeczywistym:"
+    echo -e "  ${BOLD}  docker-compose logs -f llm-ollama-init${NC}"
 fi
 
 # ── 8. Sprawdź GitHub token ───────────────────────────────────────────────────

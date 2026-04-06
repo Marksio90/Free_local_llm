@@ -45,13 +45,18 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ text, source, collection_name: collection }),
       }),
-    upload: (file: File, collection = "documents") => {
+    upload: async (file: File, collection = "documents") => {
       const fd = new FormData();
       fd.append("file", file);
-      return fetch(`${BASE}/api/knowledge/upload?collection_name=${collection}`, {
+      const r = await fetch(`${BASE}/api/knowledge/upload?collection_name=${collection}`, {
         method: "POST",
         body: fd,
-      }).then((r) => r.json());
+      });
+      if (!r.ok) {
+        const err = await r.text();
+        throw new Error(err || `HTTP ${r.status}`);
+      }
+      return r.json();
     },
   },
 
