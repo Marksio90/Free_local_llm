@@ -17,11 +17,12 @@ services:
       - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1}
       - OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT_LENGTH:-8192}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 20s
+      # curl jest dostępny w obrazie ollama/ollama
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 20s
+      timeout: 15s
+      retries: 20
+      start_period: 60s   # WSL2 + Docker Desktop = wolniejszy start
 
   # ─────────────────────────────────────────────
   # 2. Auto-pobieranie modeli przy starcie
@@ -35,7 +36,7 @@ services:
     entrypoint: >
       sh -c "
         echo '[init] Czekam na Ollama...' &&
-        until ollama list > /dev/null 2>&1; do sleep 3; done &&
+        until ollama list > /dev/null 2>&1; do sleep 5; done &&
         echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:8b}' &&
         ollama pull ${DEFAULT_MODEL:-qwen3:8b} &&
         echo '[init] Pobieranie modelu embeddingów: ${EMBED_MODEL:-nomic-embed-text}' &&
@@ -63,11 +64,12 @@ services:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=False
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
+      # ChromaDB image = Python – brak curl, używamy wbudowanego pythona
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')\" || exit 1"]
+      interval: 20s
+      timeout: 15s
+      retries: 10
+      start_period: 30s
 
   # ─────────────────────────────────────────────
   # 4. Backend API – FastAPI
@@ -89,7 +91,7 @@ services:
       - CHROMA_URL=http://chromadb:8000
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3:4b}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3:8b}
       - DATA_DIR=/app/data
       - REPOS_DIR=/app/repos
       - TRAINING_OUTPUT_DIR=/app/training/output
@@ -99,11 +101,12 @@ services:
       chromadb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+      # Backend image (Python) – curl może nie być; używamy pythona
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\" || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # ─────────────────────────────────────────────
   # 5. Interfejs czatu – React (Personal AI Chat)
