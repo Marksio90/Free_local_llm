@@ -1,10 +1,10 @@
 version: "3.8"
 
 # Free Local LLM – Personal AI Stack
-# Uruchomienie:          docker-compose up -d
-# Z GPU (NVIDIA):        docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
-# Zatrzymanie:           docker-compose down
-# Logi:                  docker-compose logs -f
+# Uruchomienie:   docker-compose up -d
+# Z GPU:          docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Zatrzymanie:    docker-compose down
+# Logi modeli:    docker-compose logs -f llm-ollama-init
 
 services:
   # ─────────────────────────────────────────────
@@ -24,16 +24,10 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-3}
       - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1}
       - OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT_LENGTH:-8192}
-    healthcheck:
-      # curl jest dostępny w obrazie ollama/ollama
-      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
-      interval: 20s
-      timeout: 15s
-      retries: 20
-      start_period: 60s   # WSL2 + Docker Desktop = wolniejszy start
 
   # ─────────────────────────────────────────────
   # 2. Auto-pobieranie modeli przy starcie
+  #    Pętla wewnątrz sama czeka na Ollama – nie blokuje docker compose up
   # ─────────────────────────────────────────────
   ollama-init:
     image: ollama/ollama:latest
@@ -54,8 +48,7 @@ services:
     environment:
       - OLLAMA_HOST=http://ollama:11434
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama    # Startuje po uruchomieniu kontenera – wewnętrzna pętla czeka na API
 
   # ─────────────────────────────────────────────
   # 3. Baza wektorowa – ChromaDB
@@ -67,18 +60,11 @@ services:
     ports:
       - "${CHROMA_PORT:-8001}:8000"
     volumes:
-      - chroma_data:/data    # ChromaDB 0.5+ zapisuje do /data (nie /chroma/chroma)
+      - chroma_data:/data
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=False
       - CHROMA_PERSIST_DIRECTORY=/data
-    healthcheck:
-      # Sprawdź czy port jest otwarty przez Python socket (brak curl/wget w obrazie)
-      test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.socket(); s.settimeout(3); s.connect((\"localhost\",8000)); s.close()'"]
-      interval: 20s
-      timeout: 15s
-      retries: 10
-      start_period: 30s
 
   # ─────────────────────────────────────────────
   # 4. Backend API – FastAPI
@@ -105,20 +91,11 @@ services:
       - REPOS_DIR=/app/repos
       - TRAINING_OUTPUT_DIR=/app/training/output
     depends_on:
-      ollama:
-        condition: service_started    # Startuje razem, łączy się przy pierwszym zapytaniu
-      chromadb:
-        condition: service_started    # Startuje razem, łączy się przy pierwszym zapytaniu
-    healthcheck:
-      # Backend image (Python) – sprawdź port przez socket
-      test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.socket(); s.settimeout(3); s.connect((\"localhost\",8080)); s.close()'"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+      - ollama
+      - chromadb
 
   # ─────────────────────────────────────────────
-  # 5. Interfejs czatu – React (Personal AI Chat)
+  # 5. Interfejs czatu – React
   # ─────────────────────────────────────────────
   frontend:
     build:
@@ -129,8 +106,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-3001}:80"
     depends_on:
-      backend:
-        condition: service_started    # Nginx startuje od razu, backend obsługuje requesty gdy gotowy
+      - backend
 
 volumes:
   ollama_data:
