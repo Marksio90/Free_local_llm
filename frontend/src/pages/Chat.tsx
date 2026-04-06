@@ -72,12 +72,7 @@ function MsgContent({ text, streaming }: { text: string; streaming?: boolean }) 
   );
 }
 
-const SUGGESTIONS = [
-  "Przeanalizuj mój ostatni commit na GitHubie",
-  "Co wiesz o moich projektach?",
-  "Wyjaśnij mi wzorzec projektowy Singleton",
-  "Jakie technologie najczęściej używam?",
-];
+const SUGGESTIONS: string[] = [];
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -252,7 +247,7 @@ export default function Chat() {
           {/* RAG + Memory toggles */}
           <button
             onClick={() => setUseRag(!useRag)}
-            title="RAG — przeszukuje wiedzę"
+            title="Wiedza — korzysta z wyuczonej wiedzy"
             className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded border transition-colors ${
               useRag ? "border-accent-500/40 bg-accent-500/10 text-accent-300" : "border-dark-500 text-gray-600"
             }`}
@@ -330,20 +325,8 @@ export default function Chat() {
               </div>
               <h2 className="text-xl font-semibold text-gray-200 mb-1">Jak mogę pomóc?</h2>
               <p className="text-sm text-gray-500 max-w-sm">
-                Uczę się na Twoich repozytoriach GitHub, pamiętam nasze rozmowy
-                i automatycznie zbieram wiedzę z internetu.
+                Pamiętam nasze rozmowy i automatycznie zbieram wiedzę z internetu — za darmo.
               </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 max-w-lg w-full">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => send(s)}
-                  className="text-left text-xs px-3 py-2.5 rounded-lg border border-dark-500 text-gray-400 hover:text-gray-200 hover:border-accent-500/40 hover:bg-accent-500/5 transition-all"
-                >
-                  {s}
-                </button>
-              ))}
             </div>
           </div>
         ) : (
@@ -373,7 +356,7 @@ export default function Chat() {
                       {(msg.contextSources ?? 0) > 0 && (
                         <span className="flex items-center gap-1 text-[10px] text-gray-600">
                           <Globe size={9} />
-                          {msg.contextSources} źródeł
+                          {msg.contextSources} wiedzy
                         </span>
                       )}
                       {(msg.memoryHits ?? 0) > 0 && (

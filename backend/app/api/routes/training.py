@@ -164,5 +164,49 @@ async def fine_tuning_instructions():
             "4. Po treningu: python /app/scripts/export_gguf.py --model output/ --name my-model",
             "5. Zarejestruj w Ollama: ollama create my-model -f /app/output/Modelfile",
         ],
-        "without_gpu": "Bez GPU możesz używać RAG (baza wektorowa) zamiast fine-tuningu – to praktyczniejsze podejście dla CPU.",
+        "without_gpu": (
+            "Bez GPU model uczy się poprzez ChromaDB (baza wektorowa). "
+            "Auto-uczenie uruchamia się automatycznie po każdym syncu GitHub "
+            "i co godzinę sprawdza nowe repo. Wikipedia jest pobierana za darmo."
+        ),
     }
+
+
+# ─── Auto-Learn endpoints ─────────────────────────────────────────────────────
+
+@router.get("/learn/status")
+async def learn_status():
+    """
+    Aktualny status auto-uczenia.
+    Pokazuje które repo model już poznał, ile datasetu wygenerowano,
+    czy trening LoRA był uruchomiony.
+    """
+    from app.services.auto_learn_service import get_learn_status
+    return get_learn_status()
+
+
+@router.post("/learn/trigger")
+async def trigger_learn(background: BackgroundTasks):
+    """
+    Ręczne uruchomienie pipeline'u uczenia.
+    Normalnie działa automatycznie po syncu GitHub i co godzinę przez scheduler.
+    """
+    from app.services.auto_learn_service import learn_from_new_repos, get_learn_status
+    status = get_learn_status()
+    if status.get("running"):
+        return {"status": "already_running", "message": "Uczenie już trwa w tle"}
+    if not status.get("pending_repos"):
+        return {"status": "no_new_repos", "message": "Brak nowych repo do uczenia. Najpierw wykonaj sync GitHub."}
+    background.add_task(learn_from_new_repos)
+    return {"status": "started", "message": "Pipeline uczenia uruchomiony w tle"}
+
+
+@router.post("/learn/wikipedia")
+async def learn_from_wikipedia(topics: List[str], background: BackgroundTasks):
+    """
+    Ręczne uruchomienie pobierania wiedzy z Wikipedii na podane tematy.
+    Darmowe — używa publicznego API Wikipedii bez klucza.
+    """
+    from app.services.auto_learn_service import enrich_with_wikipedia
+    background.add_task(enrich_with_wikipedia, topics)
+    return {"status": "started", "topics": topics, "message": f"Pobieranie {len(topics)} artykułów z Wikipedii..."}

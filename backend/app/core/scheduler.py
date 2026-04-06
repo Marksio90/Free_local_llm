@@ -1,8 +1,9 @@
 """
 Globalny scheduler dla background jobów:
 - auto-sync repo GitHub co 24h
+- auto-uczenie (learning) na nowych repo — co 1h sprawdzenie
 - auto-generowanie datasetu po ingestii
-- auto-trigger fine-tuningu gdy zebrano N próbek
+- web intel crawl co 12h
 """
 
 import logging
@@ -27,7 +28,7 @@ def stop_scheduler():
 
 
 def add_sync_job(func, hours: int = 24):
-    """Dodaj zadanie auto-sync."""
+    """Dodaj zadanie auto-sync GitHub co 24h."""
     scheduler.add_job(
         func,
         trigger=IntervalTrigger(hours=hours),
@@ -35,11 +36,26 @@ def add_sync_job(func, hours: int = 24):
         replace_existing=True,
         misfire_grace_time=3600,
     )
-    logger.info(f"Auto-sync zaplanowany co {hours}h")
+    logger.info(f"Auto-sync GitHub zaplanowany co {hours}h")
+
+
+def add_auto_learn_job(func, hours: int = 1):
+    """
+    Sprawdzaj nowe repo i uruchamiaj auto-uczenie co godzinę.
+    Model uczy się RAZ na każdym repo — nowe repo → auto re-learn.
+    """
+    scheduler.add_job(
+        func,
+        trigger=IntervalTrigger(hours=hours),
+        id="auto_learn",
+        replace_existing=True,
+        misfire_grace_time=1800,
+    )
+    logger.info(f"Auto-learn (ciągłe uczenie) zaplanowane co {hours}h")
 
 
 def add_training_check_job(func, hours: int = 6):
-    """Sprawdzaj czy jest wystarczająco danych do treningu."""
+    """Sprawdzaj czy jest wystarczająco danych do treningu LoRA."""
     scheduler.add_job(
         func,
         trigger=IntervalTrigger(hours=hours),
@@ -51,7 +67,7 @@ def add_training_check_job(func, hours: int = 6):
 
 
 def add_intel_crawl_job(func, hours: int = 12):
-    """Crawler web intelligence — co 12h zbiera nową wiedzę."""
+    """Crawler web intelligence — co 12h zbiera nową wiedzę z internetu."""
     scheduler.add_job(
         func,
         trigger=IntervalTrigger(hours=hours),
