@@ -250,13 +250,17 @@ async def build_training_dataset(
             "Format DOKŁADNIE:\nPYTANIE: <pytanie>\nODPOWIEDZ: <odpowiedź>"
         )
 
+        # Używaj background_model (lekki ~1.5B) do generowania datasetu
+        # Dzięki temu czat nie jest blokowany przez generowanie
+        gen_model = settings.background_model
+
         pairs = []
         for i, (doc, meta, source_col) in enumerate(all_docs[:max_samples]):
             if i % 100 == 0 and i > 0:
                 _log(f"  Dataset: {i}/{min(len(all_docs), max_samples)} par wygenerowanych")
             try:
                 response = await ollama.generate(
-                    settings.default_model,
+                    gen_model,
                     f"Fragment z '{source_col}':\n{doc[:600]}",
                     system_prompt,
                 )
@@ -306,9 +310,12 @@ def _check_gpu_available() -> bool:
 
 async def trigger_lora_training(dataset_path: str) -> bool:
     """
-    Uruchom LoRA trening jeśli GPU jest dostępne.
+    Uruchom LoRA trening jeśli GPU jest dostępne i nie jesteśmy w trybie laptopa.
     Trening przebiega asynchronicznie w tle.
     """
+    if settings.laptop_mode:
+        _log("Tryb laptopa aktywny — trening LoRA wyłączony. Wiedza dostępna przez ChromaDB.")
+        return False
     if not _check_gpu_available():
         _log("GPU niedostępne — trening LoRA pominięty. Używam wiedzy z ChromaDB.")
         return False
