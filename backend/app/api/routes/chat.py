@@ -182,6 +182,29 @@ async def _build_synthesizer_prompt(
 
 # ── Główny endpoint ───────────────────────────────────────────────────────────
 
+async def _resolve_model(requested: str) -> str:
+    """
+    Zwróć model do użycia — jeśli żądany nie istnieje, użyj pierwszego dostępnego.
+    Zapobiega 400 od Ollama gdy model nie jest pobrany.
+    """
+    try:
+        available = await ollama.list_models()
+        names = [m.get("name", "") for m in available]
+        if not names:
+            return requested  # Ollama może jeszcze startować
+
+        # Szukaj dokładnego lub częściowego dopasowania
+        for name in names:
+            if requested in name or name.startswith(requested.split(":")[0]):
+                return name
+
+        # Fallback do pierwszego dostępnego modelu
+        logger.warning(f"Model '{requested}' niedostępny. Używam '{names[0]}' zamiast.")
+        return names[0]
+    except Exception:
+        return requested
+
+
 @router.post("/", response_model=None)
 async def chat(req: ChatRequest):
     """
@@ -192,7 +215,7 @@ async def chat(req: ChatRequest):
     2. Researcher (RAG) → kontekst z ChromaDB         [na podstawie klasyfikacji]
     3. Syntezator (main model) → streaming response    [finalna odpowiedź]
     """
-    model = req.model or settings.default_model
+    model = await _resolve_model(req.model or settings.default_model)
 
     # ── Ścieżka multi-agentowa ────────────────────────────────────────────────
     if req.use_agents and (req.use_rag or req.use_memory):

@@ -31,8 +31,10 @@ services:
       sh -c "
         echo '[init] Czekam na Ollama...' &&
         until ollama list > /dev/null 2>&1; do sleep 5; done &&
-        echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:8b}' &&
-        ollama pull ${DEFAULT_MODEL:-qwen3:8b} &&
+        echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:4b}' &&
+        ollama pull ${DEFAULT_MODEL:-qwen3:4b} &&
+        echo '[init] Pobieranie modelu tła: ${BACKGROUND_MODEL:-qwen2.5:1.5b}' &&
+        ollama pull ${BACKGROUND_MODEL:-qwen2.5:1.5b} &&
         echo '[init] Pobieranie modelu embeddingów: ${EMBED_MODEL:-nomic-embed-text}' &&
         ollama pull ${EMBED_MODEL:-nomic-embed-text} &&
         echo '[init] Wszystkie modele gotowe!'
@@ -78,10 +80,14 @@ services:
       - CHROMA_URL=http://chromadb:8000
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
-      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3:8b}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-qwen3:4b}
+      - BACKGROUND_MODEL=${BACKGROUND_MODEL:-qwen2.5:1.5b}
+      - LAPTOP_MODE=${LAPTOP_MODE:-false}
       - DATA_DIR=/app/data
       - REPOS_DIR=/app/repos
       - TRAINING_OUTPUT_DIR=/app/training/output
+      # Wyłącz telemetrię ChromaDB client (naprawia "capture() takes 1 argument")
+      - ANONYMIZED_TELEMETRY=False
     depends_on:
       - ollama
       - chromadb
