@@ -106,9 +106,9 @@ services:
       - TRAINING_OUTPUT_DIR=/app/training/output
     depends_on:
       ollama:
-        condition: service_healthy
+        condition: service_started    # Startuje razem, łączy się przy pierwszym zapytaniu
       chromadb:
-        condition: service_healthy
+        condition: service_started    # Startuje razem, łączy się przy pierwszym zapytaniu
     healthcheck:
       # Backend image (Python) – sprawdź port przez socket
       test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.socket(); s.settimeout(3); s.connect((\"localhost\",8080)); s.close()'"]
@@ -130,7 +130,7 @@ services:
       - "${FRONTEND_PORT:-3001}:80"
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started    # Nginx startuje od razu, backend obsługuje requesty gdy gotowy
 
 volumes:
   ollama_data:
