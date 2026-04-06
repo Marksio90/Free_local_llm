@@ -1,11 +1,3 @@
-version: "3.8"
-
-# Free Local LLM – Personal AI Stack
-# Uruchomienie:          docker-compose up -d
-# Z GPU (NVIDIA):        docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
-# Zatrzymanie:           docker-compose down
-# Logi:                  docker-compose logs -f
-
 services:
   # ─────────────────────────────────────────────
   # 1. Silnik LLM – Ollama
