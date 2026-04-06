@@ -31,12 +31,17 @@ services:
       sh -c "
         echo '[init] Czekam na Ollama...' &&
         until ollama list > /dev/null 2>&1; do sleep 5; done &&
-        echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:4b}' &&
-        ollama pull ${DEFAULT_MODEL:-qwen3:4b} &&
-        echo '[init] Pobieranie modelu tła: ${BACKGROUND_MODEL:-qwen2.5:1.5b}' &&
-        ollama pull ${BACKGROUND_MODEL:-qwen2.5:1.5b} &&
-        echo '[init] Pobieranie modelu embeddingów: ${EMBED_MODEL:-nomic-embed-text}' &&
-        ollama pull ${EMBED_MODEL:-nomic-embed-text} &&
+        _pull() {
+          MODEL=$$1
+          if ollama list | grep -q \"^$$MODEL\"; then
+            echo \"[init] $$MODEL już istnieje — pomijam pobieranie\";
+          else
+            echo \"[init] Pobieranie: $$MODEL\" && ollama pull $$MODEL;
+          fi
+        } &&
+        _pull ${DEFAULT_MODEL:-qwen3:4b} &&
+        _pull ${BACKGROUND_MODEL:-qwen2.5:1.5b} &&
+        _pull ${EMBED_MODEL:-nomic-embed-text} &&
         echo '[init] Wszystkie modele gotowe!'
       "
     environment:
