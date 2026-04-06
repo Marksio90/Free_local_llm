@@ -10,6 +10,7 @@ Uruchamia się:
 - automatycznie co 24h przez scheduler
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -173,6 +174,21 @@ async def sync_all_repos(include_forks: bool = False, include_stars: bool = Fals
 
         # Zapisz stan
         _save_state(_sync_status)
+
+        # ── Trigger auto-uczenia na nowych repo ──────────────────────────────
+        # Model uczy się RAZ na każdym repo (nie szuka przy każdym pytaniu).
+        # Nowe repo → oznacz do uczenia → uruchom pipeline w tle.
+        try:
+            from app.services.auto_learn_service import mark_repos_for_learning, learn_from_new_repos
+            repo_names = [r.full_name for r in repos]
+            new_repos = mark_repos_for_learning(repo_names)
+            if new_repos:
+                log(f"Auto-uczenie: {len(new_repos)} nowych repo → startuję pipeline uczenia w tle")
+                asyncio.create_task(learn_from_new_repos())
+            else:
+                log("Auto-uczenie: brak nowych repo, model jest aktualny")
+        except Exception as learn_err:
+            log(f"Auto-uczenie błąd (nie krytyczny): {learn_err}")
 
     except Exception as e:
         _sync_status["error"] = str(e)
