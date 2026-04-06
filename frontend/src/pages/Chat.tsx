@@ -72,8 +72,6 @@ function MsgContent({ text, streaming }: { text: string; streaming?: boolean }) 
   );
 }
 
-const SUGGESTIONS: string[] = [];
-
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");

@@ -52,15 +52,16 @@ DEFAULT_FEEDS = [
 
 
 def _load_topics() -> list[dict]:
-    if TOPICS_FILE.exists():
-        try:
-            return json.loads(TOPICS_FILE.read_text())
-        except Exception:
-            pass
-    # Bootstrap z domyślnymi tematami
-    topics = [_make_topic(t) for t in DEFAULT_TOPICS]
-    _save_topics(topics)
-    return topics
+    try:
+        return json.loads(TOPICS_FILE.read_text())
+    except FileNotFoundError:
+        # Bootstrap z domyślnymi tematami tylko przy pierwszym uruchomieniu
+        topics = [_make_topic(t) for t in DEFAULT_TOPICS]
+        _save_topics(topics)
+        return topics
+    except json.JSONDecodeError:
+        logger.error("topics.json uszkodzony — nie nadpisuję, zwracam pustą listę")
+        return []
 
 
 def _save_topics(topics: list[dict]):

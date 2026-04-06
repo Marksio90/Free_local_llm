@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
@@ -52,7 +54,7 @@ async def ingest_repo(req: IngestRequest, background: BackgroundTasks):
     if not req.repo_url.startswith("https://github.com/"):
         raise HTTPException(400, "Tylko repozytoria github.com są obsługiwane (HTTPS URL)")
     collection = req.collection_name or _collection_name(req.repo_url)
-    job_id = f"ingest_{len(_jobs) + 1}"
+    job_id = f"ingest_{uuid.uuid4().hex[:8]}"
     background.add_task(_ingest_job, job_id, req.repo_url, collection)
     return {"job_id": job_id, "collection": collection, "status": "queued"}
 
