@@ -1,8 +1,10 @@
 version: "3.8"
 
-# Free Local LLM - pełny stos lokalnego AI
-# Uruchomienie: docker compose up -d
-# Z GPU (NVIDIA): docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Free Local LLM – Personal AI Stack
+# Uruchomienie:          docker-compose up -d
+# Z GPU (NVIDIA):        docker-compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Zatrzymanie:           docker-compose down
+# Logi:                  docker-compose logs -f
 
 services:
   # ─────────────────────────────────────────────
@@ -22,26 +24,32 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 20s
 
   # ─────────────────────────────────────────────
-  # 2. Interfejs czatu – Open WebUI
+  # 2. Auto-pobieranie modeli przy starcie
   # ─────────────────────────────────────────────
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: llm-webui
-    restart: unless-stopped
-    ports:
-      - "${WEBUI_PORT:-3000}:8080"
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: llm-ollama-init
+    restart: "no"
     volumes:
-      - open_webui_data:/app/backend/data
+      - ollama_data:/root/.ollama
+    entrypoint: >
+      sh -c "
+        echo '[init] Czekam na Ollama...' &&
+        until curl -sf http://ollama:11434/api/tags > /dev/null; do sleep 3; done &&
+        echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:4b}' &&
+        ollama pull ${DEFAULT_MODEL:-qwen3:4b} &&
+        echo '[init] Pobieranie modelu embeddingów: ${EMBED_MODEL:-nomic-embed-text}' &&
+        ollama pull ${EMBED_MODEL:-nomic-embed-text} &&
+        echo '[init] Wszystkie modele gotowe!'
+      "
     environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-supersecret-change-me}
-      - DEFAULT_MODELS=${DEFAULT_MODEL:-qwen3:4b}
-      - ENABLE_RAG_WEB_SEARCH=false
+      - OLLAMA_HOST=http://ollama:11434
     depends_on:
       ollama:
         condition: service_healthy
@@ -62,9 +70,10 @@ services:
       - ANONYMIZED_TELEMETRY=False
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
+      start_period: 10s
 
   # ─────────────────────────────────────────────
   # 4. Backend API – FastAPI
@@ -95,9 +104,15 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # ─────────────────────────────────────────────
-  # 5. Panel administracyjny – React
+  # 5. Interfejs czatu – React (Personal AI Chat)
   # ─────────────────────────────────────────────
   frontend:
     build:
@@ -108,13 +123,12 @@ services:
     ports:
       - "${FRONTEND_PORT:-3001}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   ollama_data:
     name: llm_ollama_data
-  open_webui_data:
-    name: llm_webui_data
   chroma_data:
     name: llm_chroma_data
   repos_cache:

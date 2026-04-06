@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -5,33 +6,81 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import github, knowledge, models, training, chat, memory, sync, intel
-from app.core.scheduler import start_scheduler, stop_scheduler, add_intel_crawl_job
+from app.core.config import settings
+from app.core.scheduler import start_scheduler, stop_scheduler, add_intel_crawl_job, add_sync_job
 
 logger = logging.getLogger(__name__)
 
 
+async def _auto_startup():
+    """
+    Zadania uruchamiane w tle przy starcie:
+    1. Upewnij się, że model embeddingów jest pobrany
+    2. Jeśli GITHUB_TOKEN ustawiony → auto-sync GitHub
+    3. Zaplanuj periodyczne zadania
+    """
+    await asyncio.sleep(5)  # Daj czas Ollama na pełny start
+
+    # 1. Pull embed model jeśli nie ma
+    try:
+        from app.services.ollama_client import ollama
+        pulled_models = await ollama.list_models()
+        names = [m.get("name", "") for m in pulled_models]
+        if not any(settings.embed_model in n for n in names):
+            logger.info(f"Auto-pull: pobieranie modelu embeddingów '{settings.embed_model}'...")
+            async for line in ollama.pull_model(settings.embed_model):
+                pass  # consume stream
+            logger.info(f"Model embeddingów '{settings.embed_model}' pobrany.")
+    except Exception as e:
+        logger.warning(f"Auto-pull embed model: {e}")
+
+    # 2. Auto-sync GitHub jeśli token dostępny
+    if settings.github_token:
+        try:
+            logger.info("GitHub token wykryty – uruchamiam auto-sync przy starcie...")
+            from app.services.sync_service import sync_all_repos
+            result = await sync_all_repos(include_stars=True)
+            logger.info(
+                f"Auto-sync GitHub zakończony: {result.get('repos_synced', 0)} repo, "
+                f"{result.get('chunks_added', 0)} fragmentów → ChromaDB"
+            )
+        except Exception as e:
+            logger.warning(f"Auto-sync GitHub przy starcie: {e}")
+    else:
+        logger.info("Brak GITHUB_TOKEN – pomiń auto-sync. Ustaw token w .env aby aktywować.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # ── Startup ──────────────────────────────────
     start_scheduler()
 
-    # Zaplanuj crawler web intelligence co 12h
+    # Zaplanuj web intel crawl co 12h
     from app.services.topic_tracker_service import crawl_all_due_topics
     add_intel_crawl_job(crawl_all_due_topics, hours=12)
 
-    logger.info("Backend v2.1 uruchomiony – Web Intelligence aktywne")
+    # Zaplanuj GitHub sync co 24h
+    if settings.github_token:
+        from app.services.sync_service import sync_all_repos
+        add_sync_job(sync_all_repos, hours=24)
+
+    # Uruchom zadania startowe w tle (nie blokują API)
+    asyncio.create_task(_auto_startup())
+
+    logger.info("Backend v3.0 gotowy – Personal AI uruchomiony")
     yield
-    # Shutdown
+
+    # ── Shutdown ─────────────────────────────────
     stop_scheduler()
 
 
 app = FastAPI(
     title="Free Local LLM – Backend API",
     description=(
-        "Lokalny system AI z pamięcią personalną, RAG na repozytoriach GitHub, "
-        "Web Intelligence (DuckDuckGo + Wikipedia + RSS), auto-sync i fine-tuning."
+        "Lokalny Personal AI: pamięć konwersacji, RAG na GitHub, "
+        "Web Intelligence (DuckDuckGo + Wikipedia + RSS), auto-sync, fine-tuning."
     ),
-    version="2.1.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -55,4 +104,4 @@ app.include_router(intel.router,    prefix="/api/intel",    tags=["Web Intellige
 
 @app.get("/health", tags=["System"])
 async def health():
-    return {"status": "ok", "version": "2.1.0", "service": "Free Local LLM Backend"}
+    return {"status": "ok", "version": "3.0.0", "service": "Free Local LLM Backend"}
