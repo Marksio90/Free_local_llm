@@ -58,10 +58,10 @@ async def list_repos():
 async def configure_schedule(req: ScheduleRequest):
     """Konfiguruj auto-sync."""
     if req.enabled:
-        add_sync_job(
-            lambda: sync_all_repos(include_forks=False, include_stars=False),
-            hours=req.interval_hours,
-        )
+        async def _scheduled_sync():
+            await sync_all_repos(include_forks=False, include_stars=False)
+
+        add_sync_job(_scheduled_sync, hours=req.interval_hours)
         return {"status": "scheduled", "interval_hours": req.interval_hours}
     else:
         try:

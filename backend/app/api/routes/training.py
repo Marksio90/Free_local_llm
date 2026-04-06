@@ -135,7 +135,8 @@ async def list_datasets():
     files = []
     for f in output_dir.glob("*.jsonl"):
         size = f.stat().st_size
-        lines = sum(1 for _ in open(f, encoding="utf-8"))
+        with open(f, encoding="utf-8") as fh:
+            lines = sum(1 for _ in fh)
         files.append({"name": f.name, "path": str(f), "size_kb": round(size / 1024, 1), "samples": lines})
     return files
 

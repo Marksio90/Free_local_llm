@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw, Loader, Github, Calendar, CheckCircle, XCircle, Clock } from "lucide-react";
 
 const BASE = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
@@ -37,6 +37,7 @@ export default function Sync() {
   const [includeForks, setIncludeForks] = useState(false);
   const [scheduleHours, setScheduleHours] = useState(24);
   const [hasToken, setHasToken] = useState<boolean | null>(null);
+  const runningRef = useRef(false);
 
   const refresh = async () => {
     try {
@@ -45,6 +46,7 @@ export default function Sync() {
         fetch(`${BASE}/api/sync/schedule`).then((r) => r.json()),
       ]);
       setStatus(s);
+      runningRef.current = !!s?.running;  // aktualizuj ref synchronicznie
       setSchedule(sc);
     } catch {}
   };
@@ -70,7 +72,8 @@ export default function Sync() {
     refresh();
     loadRepos();
     const t = setInterval(() => {
-      if (status?.running) refresh();
+      // Używamy ref zamiast state — ref zawsze ma aktualną wartość w closure setInterval
+      if (runningRef.current) refresh();
     }, 3000);
     return () => clearInterval(t);
   }, []);

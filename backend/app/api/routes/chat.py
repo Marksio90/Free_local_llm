@@ -90,7 +90,8 @@ async def _classify_query(message: str) -> dict:
         # Sprawdź czy background model jest dostępny
         models = await ollama.list_models()
         model_names = [m.get("name", "") for m in models]
-        if not any(bg_model in n or n in bg_model for n in model_names):
+        # Uwaga: `n in bg_model` gdy n=="" jest zawsze True — stąd explicit check `n and`
+        if not any(bg_model in n or (n and n in bg_model) for n in model_names):
             logger.debug(f"Background model '{bg_model}' niedostępny → fallback")
             return fallback
 
@@ -254,42 +255,43 @@ async def chat(req: ChatRequest):
         async def _stream():
             yield json.dumps(meta) + "\n"
 
-            full_response = []
-            async with httpx.AsyncClient(timeout=300) as client:
-                async with client.stream(
-                    "POST",
-                    f"{ollama.base_url}/api/generate",
-                    json={
-                        "model": model,
-                        "prompt": req.message,
-                        "system": system_prompt,
-                        "stream": True,
-                    },
-                ) as resp:
-                    if resp.status_code != 200:
-                        yield json.dumps({"token": f"[Błąd Ollama: HTTP {resp.status_code}]"}) + "\n"
-                        return
+            full_response: list[str] = []
+            try:
+                async with httpx.AsyncClient(timeout=300) as client:
+                    async with client.stream(
+                        "POST",
+                        f"{ollama.base_url}/api/generate",
+                        json={
+                            "model": model,
+                            "prompt": req.message,
+                            "system": system_prompt,
+                            "stream": True,
+                        },
+                    ) as resp:
+                        if resp.status_code != 200:
+                            yield json.dumps({"token": f"[Błąd Ollama: HTTP {resp.status_code}]"}) + "\n"
+                            return
 
-                    async for line in resp.aiter_lines():
-                        if not line:
-                            continue
-                        try:
-                            data = json.loads(line)
-                            token = data.get("response", "")
-                            full_response.append(token)
-                            yield json.dumps({
-                                "token": token,
-                                "done": data.get("done", False),
-                            }) + "\n"
-                            if data.get("done"):
-                                break
-                        except Exception:
-                            pass
-
-            if req.use_memory:
-                full_text = "".join(full_response)
-                await memory.add_exchange(req.message, full_text, req.session_id)
-                asyncio.create_task(_auto_learn(req.message, full_text))
+                        async for line in resp.aiter_lines():
+                            if not line:
+                                continue
+                            try:
+                                data = json.loads(line)
+                                token = data.get("response", "")
+                                full_response.append(token)
+                                yield json.dumps({
+                                    "token": token,
+                                    "done": data.get("done", False),
+                                }) + "\n"
+                                if data.get("done"):
+                                    break
+                            except Exception:
+                                pass
+            finally:
+                if req.use_memory and full_response:
+                    full_text = "".join(full_response)
+                    await memory.add_exchange(req.message, full_text, req.session_id)
+                    asyncio.create_task(_auto_learn(req.message, full_text))
 
         return StreamingResponse(_stream(), media_type="application/x-ndjson")
 

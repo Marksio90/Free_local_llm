@@ -48,7 +48,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-accent-300">Zacznij od razu</div>
-            <p className="text-xs text-gray-400 mt-0.5">Chat automatycznie przeszuka Twoje repo i pamięć</p>
+            <p className="text-xs text-gray-400 mt-0.5">Model korzysta z wyuczonej wiedzy i pamięci rozmów</p>
           </div>
           <a href="/chat" className="btn-primary flex items-center gap-2">
             <MessageSquare size={13} />
@@ -135,7 +135,7 @@ export default function Dashboard() {
           {[
             ["Auto-Sync →", "Podłącz konto GitHub → wszystkie Twoje repo zaindeksowane automatycznie co 24h"],
             ["Wiedza →", "Wgraj dokumenty, notatki, pliki — trafiają do RAG"],
-            ["Chat →", "Każda rozmowa: BM25+vector search → kontekst z kodu → pamięć → odpowiedź"],
+            ["Chat →", "Każda rozmowa: Vector+BM25+RRF → wyuczona wiedza → pamięć → odpowiedź agentów"],
             ["Pamięć →", "Każda rozmowa zapamiętana — model zna Cię coraz lepiej z czasem"],
             ["Trening →", "Nowe commity → auto-dataset Q&A → LoRA fine-tuning (GPU)"],
           ].map(([step, desc], i) => (

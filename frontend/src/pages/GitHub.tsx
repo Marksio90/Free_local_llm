@@ -183,7 +183,7 @@ export default function GitHub() {
 
 function JobBadge({ status }: { status: string }) {
   if (status === "done") return <span className="badge-green">Gotowe</span>;
-  if (status === "running") return <span className="badge-yellow"><Loader size={10} className="animate-spin" />W toku</span>;
+  if (status === "running") return <span className="badge-yellow inline-flex items-center gap-1"><Loader size={10} className="animate-spin" />W toku</span>;
   if (status === "error") return <span className="badge-red">Błąd</span>;
   return <span className="badge-blue">{status}</span>;
 }

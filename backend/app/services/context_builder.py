@@ -100,23 +100,15 @@ async def _bm25_search_all(query: str, collections: List[str]) -> List[Tuple[str
     if not tokenized_query:
         return []
 
-    loop = asyncio.get_event_loop()
-    tasks = []
-    for col_name in collections:
-        tasks.append(loop.run_in_executor(None, _bm25_search_one_sync, col_name, tokenized_query))
+    loop = asyncio.get_running_loop()
+    tasks = [
+        loop.run_in_executor(None, _bm25_search_one_sync, col_name, tokenized_query)
+        for col_name in collections
+    ]
 
     results_nested = await asyncio.gather(*tasks, return_exceptions=True)
 
-    all_results: List[Tuple[str, int, str]] = []
-    global_rank = 0
-    for r in results_nested:
-        if isinstance(r, list):
-            for doc in r:
-                all_results.append((doc, global_rank, ""))  # col_name dodamy poniżej
-                global_rank += 1
-
-    # Zmerguj z informacją o kolekcji
-    merged = []
+    merged: List[Tuple[str, int, str]] = []
     global_rank = 0
     for col_results in results_nested:
         if isinstance(col_results, list):
@@ -239,9 +231,10 @@ async def build_context(query: str, include_memory: bool = True) -> dict:
 
     if collections:
         # 1. Uruchom vector search i BM25 RÓWNOLEGLE (nie sekwencyjnie!)
-        vector_task = asyncio.create_task(_vector_search_all(query, collections))
-        bm25_task = asyncio.create_task(_bm25_search_all(query, collections))
-        vector_hits, bm25_hits = await asyncio.gather(vector_task, bm25_task)
+        vector_hits, bm25_hits = await asyncio.gather(
+            _vector_search_all(query, collections),
+            _bm25_search_all(query, collections),
+        )
 
         # 2. Połącz algorytmem RRF
         rrf_results = _reciprocal_rank_fusion(vector_hits, bm25_hits)
@@ -250,6 +243,7 @@ async def build_context(query: str, include_memory: bool = True) -> dict:
         knowledge_chunks = _deduplicate(rrf_results)
     else:
         vector_hits = []
+        bm25_hits = []
         knowledge_chunks = []
 
     # 4. Pamięć personalna

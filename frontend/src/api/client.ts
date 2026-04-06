@@ -87,6 +87,8 @@ export const api = {
     jobs: () => request<TrainingJob[]>("/api/training/jobs"),
     jobStatus: (id: string) => request<TrainingJob>(`/api/training/jobs/${id}`),
     instructions: () => request<FineTuneInstructions>("/api/training/instructions"),
+    learnStatus: () => request<LearnStatus>("/api/training/learn/status"),
+    triggerLearn: () => request<{ status: string; message: string }>("/api/training/learn/trigger", { method: "POST" }),
   },
 
   health: () => request<{ status: string }>("/health"),
@@ -138,4 +140,16 @@ export interface FineTuneInstructions {
   info: string;
   steps: string[];
   without_gpu: string;
+}
+
+export interface LearnStatus {
+  running: boolean;
+  last_learn: string | null;
+  learned_repos: string[];
+  pending_repos: string[];
+  wiki_topics_learned: string[];
+  total_samples: number;
+  last_dataset: string | null;
+  gpu_training_done: boolean;
+  log: string[];
 }

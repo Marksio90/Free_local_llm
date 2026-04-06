@@ -144,7 +144,7 @@ def _extract_text_sync(url: str, html: Optional[str] = None) -> str:
 
 async def fetch_and_extract(url: str) -> str:
     """Asynchroniczne pobranie i ekstrakcja tekstu ze strony."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         return await loop.run_in_executor(_executor, _extract_text_sync, url, None)
     except Exception as e:
@@ -190,7 +190,7 @@ async def search_and_ingest(query: str, max_results: int = 5, collection: str = 
     Szukaj w DuckDuckGo i zaingestionuj wyniki.
     Używa exponential backoff i rotacji User-Agent — odporne na blokadę IP.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     results = await loop.run_in_executor(_executor, _ddg_search_sync, query, max_results)
 
     ingested = 0
@@ -289,7 +289,7 @@ def _parse_feed_sync(feed_url: str) -> list:
 
 async def ingest_rss_feed(feed_url: str, max_articles: int = 10, collection: str = WEB_COLLECTION) -> dict:
     """Ingestion RSS feed — nowe artykuły trafiają do ChromaDB."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     items = await loop.run_in_executor(_executor, _parse_feed_sync, feed_url)
 
     ingested = 0
