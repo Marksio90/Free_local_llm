@@ -48,3 +48,15 @@ def add_training_check_job(func, hours: int = 6):
         misfire_grace_time=3600,
     )
     logger.info(f"Sprawdzanie treningu zaplanowane co {hours}h")
+
+
+def add_intel_crawl_job(func, hours: int = 12):
+    """Crawler web intelligence — co 12h zbiera nową wiedzę."""
+    scheduler.add_job(
+        func,
+        trigger=IntervalTrigger(hours=hours),
+        id="intel_crawl",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    logger.info(f"Web intel crawler zaplanowany co {hours}h")
