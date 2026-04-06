@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     chroma_url: str = "http://chromadb:8000"
     github_token: str = ""
     embed_model: str = "nomic-embed-text"
-    default_model: str = "qwen2.5-coder:7b"
+    default_model: str = "qwen3:4b"  # bezpieczny default – docker-compose go pobiera przy starcie
 
     # Lekki model do zadań w tle (generowanie datasetu, klasyfikacja zapytań)
     # Zajmuje ~1 GB RAM — nie koliduje z głównym modelem podczas czatu
