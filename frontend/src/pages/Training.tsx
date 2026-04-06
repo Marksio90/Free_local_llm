@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
-import { api, DatasetInfo, TrainingJob, FineTuneInstructions } from "../api/client";
-import { Zap, Database, RefreshCw, Loader, Terminal, Info } from "lucide-react";
+import { api, DatasetInfo, TrainingJob, FineTuneInstructions, LearnStatus } from "../api/client";
+import { Zap, Database, RefreshCw, Loader, Terminal, Info, Brain, BookOpen } from "lucide-react";
 
 export default function Training() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [jobs, setJobs] = useState<(TrainingJob & { job_id?: string })[]>([]);
   const [instructions, setInstructions] = useState<FineTuneInstructions | null>(null);
+  const [learnStatus, setLearnStatus] = useState<LearnStatus | null>(null);
   const [collection, setCollection] = useState("");
   const [outputName, setOutputName] = useState("dataset");
   const [maxSamples, setMaxSamples] = useState(500);
   const [model, setModel] = useState("");
   const [building, setBuilding] = useState(false);
+  const [triggeringLearn, setTriggeringLearn] = useState(false);
 
   const refresh = () => {
     api.training.datasets().then(setDatasets).catch(() => {});
     api.training.jobs().then(setJobs).catch(() => {});
+    api.training.learnStatus().then(setLearnStatus).catch(() => {});
   };
 
   useEffect(() => {
@@ -23,6 +26,21 @@ export default function Training() {
     const t = setInterval(refresh, 4000);
     return () => clearInterval(t);
   }, []);
+
+  const triggerLearn = async () => {
+    setTriggeringLearn(true);
+    try {
+      const r = await api.training.triggerLearn();
+      if (r.status === "no_new_repos") {
+        alert("Brak nowych repo do uczenia. Najpierw uruchom GitHub Auto-Sync.");
+      }
+    } catch (e) {
+      alert(`Błąd: ${e}`);
+    } finally {
+      setTriggeringLearn(false);
+      refresh();
+    }
+  };
 
   const buildDataset = async () => {
     if (!collection) return;
@@ -152,6 +170,67 @@ export default function Training() {
         )}
       </div>
 
+      {/* Learn status */}
+      {learnStatus && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+              <Brain size={14} className="text-pink-400" />
+              Status automatycznego uczenia
+            </h2>
+            <button
+              onClick={triggerLearn}
+              disabled={triggeringLearn || learnStatus.running}
+              className="btn-primary flex items-center gap-2 text-xs py-1 px-3"
+            >
+              {triggeringLearn || learnStatus.running
+                ? <><Loader size={12} className="animate-spin" />Uczę się...</>
+                : <><Zap size={12} />Uruchom uczenie</>}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
+            <div className="bg-dark-800 rounded-lg p-3">
+              <div className="text-xl font-bold text-green-400">{learnStatus.learned_repos.length}</div>
+              <div className="text-xs text-gray-500">Repo wyuczone</div>
+            </div>
+            <div className="bg-dark-800 rounded-lg p-3">
+              <div className="text-xl font-bold text-yellow-400">{learnStatus.pending_repos.length}</div>
+              <div className="text-xs text-gray-500">Oczekuje</div>
+            </div>
+            <div className="bg-dark-800 rounded-lg p-3">
+              <div className="text-xl font-bold text-accent-400">{learnStatus.total_samples}</div>
+              <div className="text-xs text-gray-500">Par Q&amp;A</div>
+            </div>
+            <div className="bg-dark-800 rounded-lg p-3">
+              <div className="text-xl font-bold text-blue-400">{learnStatus.wiki_topics_learned.length}</div>
+              <div className="text-xs text-gray-500">Tematy Wiki</div>
+            </div>
+          </div>
+          {learnStatus.last_learn && (
+            <p className="text-xs text-gray-500 mb-3">
+              Ostatnie uczenie: {new Date(learnStatus.last_learn).toLocaleString("pl")}
+            </p>
+          )}
+          {learnStatus.last_dataset && (
+            <p className="text-xs text-gray-500 mb-3">
+              Ostatni dataset: <span className="font-mono text-gray-400">{learnStatus.last_dataset}</span>
+            </p>
+          )}
+          {learnStatus.gpu_training_done && (
+            <div className="mb-3 p-2 bg-green-900/20 rounded text-xs text-green-400 border border-green-800/40">
+              LoRA fine-tuning ukończony — model eksportowany do GGUF
+            </div>
+          )}
+          {learnStatus.log.length > 0 && (
+            <div className="bg-dark-800 rounded-lg p-3 max-h-40 overflow-y-auto">
+              {learnStatus.log.slice(-20).map((line, i) => (
+                <div key={i} className="text-xs font-mono text-gray-400">{line}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* LoRA instructions */}
       {instructions && (
         <div className="card">
@@ -176,7 +255,7 @@ export default function Training() {
 
 function JobBadge({ status }: { status: string }) {
   if (status === "done") return <span className="badge-green">Gotowe</span>;
-  if (status === "running") return <span className="badge-yellow"><Loader size={10} className="animate-spin" />W toku</span>;
+  if (status === "running") return <span className="badge-yellow inline-flex items-center gap-1"><Loader size={10} className="animate-spin" />W toku</span>;
   if (status === "error") return <span className="badge-red">Błąd</span>;
   return <span className="badge-blue">{status}</span>;
 }

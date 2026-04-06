@@ -90,7 +90,8 @@ async def _classify_query(message: str) -> dict:
         # Sprawdź czy background model jest dostępny
         models = await ollama.list_models()
         model_names = [m.get("name", "") for m in models]
-        if not any(bg_model in n or n in bg_model for n in model_names):
+        # Uwaga: `n in bg_model` gdy n=="" jest zawsze True — stąd explicit check `n and`
+        if not any(bg_model in n or (n and n in bg_model) for n in model_names):
             logger.debug(f"Background model '{bg_model}' niedostępny → fallback")
             return fallback
 
