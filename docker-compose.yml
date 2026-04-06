@@ -35,9 +35,9 @@ services:
     entrypoint: >
       sh -c "
         echo '[init] Czekam na Ollama...' &&
-        until curl -sf http://ollama:11434/api/tags > /dev/null; do sleep 3; done &&
-        echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:4b}' &&
-        ollama pull ${DEFAULT_MODEL:-qwen3:4b} &&
+        until ollama list > /dev/null 2>&1; do sleep 3; done &&
+        echo '[init] Pobieranie modelu czatu: ${DEFAULT_MODEL:-qwen3:8b}' &&
+        ollama pull ${DEFAULT_MODEL:-qwen3:8b} &&
         echo '[init] Pobieranie modelu embeddingów: ${EMBED_MODEL:-nomic-embed-text}' &&
         ollama pull ${EMBED_MODEL:-nomic-embed-text} &&
         echo '[init] Wszystkie modele gotowe!'
