@@ -67,13 +67,14 @@ services:
     ports:
       - "${CHROMA_PORT:-8001}:8000"
     volumes:
-      - chroma_data:/chroma/chroma
+      - chroma_data:/data    # ChromaDB 0.5+ zapisuje do /data (nie /chroma/chroma)
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=False
+      - CHROMA_PERSIST_DIRECTORY=/data
     healthcheck:
-      # ChromaDB image = Python – brak curl, używamy wbudowanego pythona
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/heartbeat')\" || exit 1"]
+      # Sprawdź czy port jest otwarty przez Python socket (brak curl/wget w obrazie)
+      test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.socket(); s.settimeout(3); s.connect((\"localhost\",8000)); s.close()'"]
       interval: 20s
       timeout: 15s
       retries: 10
@@ -109,8 +110,8 @@ services:
       chromadb:
         condition: service_healthy
     healthcheck:
-      # Backend image (Python) – curl może nie być; używamy pythona
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\" || exit 1"]
+      # Backend image (Python) – sprawdź port przez socket
+      test: ["CMD-SHELL", "python3 -c 'import socket; s=socket.socket(); s.settimeout(3); s.connect((\"localhost\",8080)); s.close()'"]
       interval: 20s
       timeout: 10s
       retries: 10
